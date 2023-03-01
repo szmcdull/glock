@@ -3,7 +3,6 @@ package glock
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/petermattis/goid"
 )
@@ -33,7 +32,7 @@ func (me *GLock) Lock() (waited bool) {
 	return waited
 }
 
-// o l+ L r+,
+// L o r+
 // TryLock only locks successfully when a waiting is not needed. This method is always non-blocking
 func (me *GLock) TryLock() (locked bool) {
 	gid := goid.Get()
@@ -45,16 +44,11 @@ func (me *GLock) TryLock() (locked bool) {
 		return false
 	}
 
-	// me.owner == 0, not owned by any goroutine yet. so try to acquire the lock now
-	if atomic.CompareAndSwapInt64(&me.owner, 0, gid) { // first acquire, current goroutine becomes the owner
-		atomic.AddInt64(&me.lockCount, 1)
+	locked = me.Mutex.TryLock()
+	if locked {
 		me.owner = gid
-		me.Mutex.Lock()
-		me.reentranceCount++
-		return true
-	} else { // lock grabbed by another goroutine first
-		return false
 	}
+	return locked
 }
 
 // L o r+, r- o U
