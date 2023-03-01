@@ -12,12 +12,10 @@ type GLock struct {
 
 	// operations in the owner goroutine does not need synchronizing
 	owner           int64 // owner goroutine of the lock, 0 for none
-	lockCount       int64 // current lock count
 	reentranceCount int64 // count of reentrances in the owner goroutine
 }
 
-// L o r+
-// Lock and returns true if waited
+// Lock and reports whether a waiting occurred
 func (me *GLock) Lock() (waited bool) {
 	gid := goid.Get()
 
@@ -32,14 +30,15 @@ func (me *GLock) Lock() (waited bool) {
 	return waited
 }
 
-// L o r+
 // TryLock only locks successfully when a waiting is not needed. This method is always non-blocking
 func (me *GLock) TryLock() (locked bool) {
 	gid := goid.Get()
+
 	if me.owner == gid { // already owned
 		me.reentranceCount++
 		return true
 	}
+
 	if me.owner != 0 { // owned by another goroutine, failing the try
 		return false
 	}
@@ -70,10 +69,4 @@ func (me *GLock) Unlock() {
 	} else {
 		panic(fmt.Errorf(`reentranceCount < 0`))
 	}
-
-	// lockCount := atomic.AddInt64(&me.lockCount, -1)
-
-	// if lockCount == 0 {
-	// 	me.owner = 0
-	// }
 }

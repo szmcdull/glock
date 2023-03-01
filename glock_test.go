@@ -24,9 +24,6 @@ func TestReentrance(t *testing.T) {
 			t.Error(`reentranceCount not cleared`)
 		}
 
-		if l.lockCount != 0 {
-			t.Error(`lockCount not cleared`)
-		}
 		ch <- struct{}{}
 	}()
 
@@ -59,9 +56,6 @@ func TestReentranceTry(t *testing.T) {
 			t.Error(`reentranceCount not cleared`)
 		}
 
-		if l.lockCount != 0 {
-			t.Error(`lockCount not cleared`)
-		}
 		ch <- struct{}{}
 	}()
 
@@ -102,10 +96,6 @@ func TestLock(t *testing.T) {
 	if l.reentranceCount != 0 {
 		t.Error(`reentranceCount not cleared`)
 	}
-
-	if l.lockCount != 0 {
-		t.Error(`lockCount not cleared`)
-	}
 }
 
 func TestLockTry(t *testing.T) {
@@ -142,10 +132,6 @@ func TestLockTry(t *testing.T) {
 	if l.reentranceCount != 0 {
 		t.Error(`reentranceCount not cleared`)
 	}
-
-	if l.lockCount != 0 {
-		t.Error(`lockCount not cleared`)
-	}
 }
 
 func TestConcurrent(t *testing.T) {
@@ -170,7 +156,7 @@ func TestConcurrent(t *testing.T) {
 	}
 
 	wg.Wait()
-	if l.owner != 0 || l.reentranceCount != 0 || l.lockCount != 0 {
+	if l.owner != 0 || l.reentranceCount != 0 {
 		t.Fail()
 	}
 	if counted != count {
@@ -212,7 +198,7 @@ func TestConcurrentTry(t *testing.T) {
 	}
 
 	wg.Wait()
-	if l.owner != 0 || l.reentranceCount != 0 || l.lockCount != 0 {
+	if l.owner != 0 || l.reentranceCount != 0 {
 		t.Fail()
 	}
 	if counted != int64(count) {
