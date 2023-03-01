@@ -3,7 +3,6 @@ package glock
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/petermattis/goid"
 )
@@ -13,58 +12,61 @@ type GLock struct {
 
 	// operations in the owner goroutine does not need synchronizing
 	owner           int64 // owner goroutine of the lock, 0 for none
-	lockCount       int64 // current lock count
 	reentranceCount int64 // count of reentrances in the owner goroutine
 }
 
-// Lock and returns true if waited
-func (me *GLock) Lock() bool {
+// Lock and reports whether a waiting occurred
+func (me *GLock) Lock() (waited bool) {
 	gid := goid.Get()
-	lockCount := atomic.AddInt64(&me.lockCount, 1)
-	if lockCount == 1 { // first acquire, current goroutine becomes the owner
-		me.Mutex.Lock()
-		me.owner = gid
-		me.reentranceCount++
-		return false
-	} else if lockCount > 0 {
-		if me.owner != gid { // locked in another goroutine, wait to acquire
-			me.Mutex.Lock() // wait
-			me.owner = gid  // acquired
-			me.reentranceCount++
-			return true
-		}
 
-		// locked in the same goroutine
+	if me.owner == gid {
 		me.reentranceCount++
 		return false
 	}
 
-	panic(fmt.Errorf(`invalid lock count %d`, lockCount))
+	waited = me.owner == 0
+	me.Mutex.Lock()
+	me.owner = gid
+	return waited
 }
 
-// l+ L o r+, r- o U l-
+// TryLock only locks successfully when a waiting is not needed. This method is always non-blocking
+func (me *GLock) TryLock() (locked bool) {
+	gid := goid.Get()
+
+	if me.owner == gid { // already owned
+		me.reentranceCount++
+		return true
+	}
+
+	if me.owner != 0 { // owned by another goroutine, failing the try
+		return false
+	}
+
+	locked = me.Mutex.TryLock()
+	if locked {
+		me.owner = gid
+	}
+	return locked
+}
+
+// L o r+, r- o U
 
 func (me *GLock) Unlock() {
 	gid := goid.Get()
 	owner := me.owner
 	owned := gid == owner
 
-	if owned {
-		me.reentranceCount--
-	} else {
+	if !owned {
 		panic(`unlocking non-owned GLock`)
 	}
 
-	// lockCount may be increased by other goroutines (before waiting for this lock)
-	// so me.owner may not be cleared after a full unlocking. but it doesn't matter, because lockCount will be 0
-	if me.lockCount == 1 {
-		me.owner = 0
-	}
-
 	if me.reentranceCount == 0 {
+		me.owner = 0
 		me.Mutex.Unlock()
+	} else if me.reentranceCount > 0 {
+		me.reentranceCount--
+	} else {
+		panic(fmt.Errorf(`reentranceCount < 0`))
 	}
-
-	atomic.AddInt64(&me.lockCount, -1)
-
 }
