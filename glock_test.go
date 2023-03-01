@@ -95,7 +95,7 @@ func TestConcurrent(t *testing.T) {
 	}
 
 	wg.Wait()
-	if l.owner != 0 || l.reentranceCount != 0 || l.lockCount != 0 {
+	if /*l.owner != 0 || */ l.reentranceCount != 0 || l.lockCount != 0 {
 		t.Fail()
 	}
 	if counted != count {

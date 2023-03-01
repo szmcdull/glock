@@ -22,8 +22,8 @@ func (me *GLock) Lock() bool {
 	gid := goid.Get()
 	lockCount := atomic.AddInt64(&me.lockCount, 1)
 	if lockCount == 1 { // first acquire, current goroutine becomes the owner
-		me.owner = gid
 		me.Mutex.Lock()
+		me.owner = gid
 		me.reentranceCount++
 		return false
 	} else if lockCount > 0 {
@@ -42,6 +42,8 @@ func (me *GLock) Lock() bool {
 	panic(fmt.Errorf(`invalid lock count %d`, lockCount))
 }
 
+// l+ L o r+, r- o U l-
+
 func (me *GLock) Unlock() {
 	gid := goid.Get()
 	owner := me.owner
@@ -53,13 +55,16 @@ func (me *GLock) Unlock() {
 		panic(`unlocking non-owned GLock`)
 	}
 
+	// lockCount may be increased by other goroutines (before waiting for this lock)
+	// so me.owner may not be cleared after a full unlocking. but it doesn't matter, because lockCount will be 0
 	if me.lockCount == 1 {
 		me.owner = 0
 	}
-	atomic.AddInt64(&me.lockCount, -1)
 
 	if me.reentranceCount == 0 {
 		me.Mutex.Unlock()
 	}
+
+	atomic.AddInt64(&me.lockCount, -1)
 
 }
