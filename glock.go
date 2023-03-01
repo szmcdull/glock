@@ -17,6 +17,7 @@ type GLock struct {
 	reentranceCount int64 // count of reentrances in the owner goroutine
 }
 
+// Lock and returns true if waited
 func (me *GLock) Lock() bool {
 	gid := goid.Get()
 	lockCount := atomic.AddInt64(&me.lockCount, 1)
@@ -24,7 +25,7 @@ func (me *GLock) Lock() bool {
 		me.owner = gid
 		me.Mutex.Lock()
 		me.reentranceCount++
-		return true
+		return false
 	} else if lockCount > 0 {
 		if me.owner != gid { // locked in another goroutine, wait to acquire
 			me.Mutex.Lock() // wait
