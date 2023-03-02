@@ -7,11 +7,15 @@ import (
 	"time"
 )
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
 func TestReentrance(t *testing.T) {
 	ch := make(chan struct{})
 
 	go func() {
-		l := GLock{}
+		l := Mutex{}
 		l.Lock()
 		l.Lock()
 		l.Unlock()
@@ -39,7 +43,7 @@ func TestReentranceTry(t *testing.T) {
 	ch := make(chan struct{})
 
 	go func() {
-		l := GLock{}
+		l := Mutex{}
 		if l.TryLock() != true {
 			t.Fail()
 		}
@@ -68,7 +72,7 @@ func TestReentranceTry(t *testing.T) {
 }
 
 func TestLock(t *testing.T) {
-	l := GLock{}
+	l := Mutex{}
 	l.Lock()
 	step := 0
 
@@ -99,7 +103,7 @@ func TestLock(t *testing.T) {
 }
 
 func TestLockTry(t *testing.T) {
-	l := GLock{}
+	l := Mutex{}
 	if l.TryLock() != true {
 		t.Error(`1`)
 	}
@@ -135,7 +139,7 @@ func TestLockTry(t *testing.T) {
 }
 
 func TestConcurrent(t *testing.T) {
-	l := GLock{}
+	l := Mutex{}
 	count := 1000000
 	wg := sync.WaitGroup{}
 	wg.Add(count)
@@ -165,7 +169,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestConcurrentTry(t *testing.T) {
-	l := GLock{}
+	l := Mutex{}
 	count := 1000000
 	wg := sync.WaitGroup{}
 	wg.Add(count)

@@ -7,7 +7,7 @@ import (
 	"github.com/petermattis/goid"
 )
 
-type GLock struct {
+type Mutex struct {
 	sync.Mutex
 
 	// operations in the owner goroutine does not need synchronizing
@@ -16,7 +16,7 @@ type GLock struct {
 }
 
 // Lock and reports whether a waiting occurred
-func (me *GLock) Lock() (waited bool) {
+func (me *Mutex) Lock() (waited bool) {
 	gid := goid.Get()
 
 	if me.owner == gid {
@@ -31,7 +31,7 @@ func (me *GLock) Lock() (waited bool) {
 }
 
 // TryLock only locks successfully when a waiting is not needed. This method is always non-blocking
-func (me *GLock) TryLock() (locked bool) {
+func (me *Mutex) TryLock() (locked bool) {
 	gid := goid.Get()
 
 	if me.owner == gid { // already owned
@@ -52,7 +52,7 @@ func (me *GLock) TryLock() (locked bool) {
 
 // L o r+, r- o U
 
-func (me *GLock) Unlock() {
+func (me *Mutex) Unlock() {
 	gid := goid.Get()
 	owner := me.owner
 	owned := gid == owner
