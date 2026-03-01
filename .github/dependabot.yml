@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"   # 监控 Go Modules
+    directory: "/"               # go.mod 所在目录
+    schedule:
+      interval: "daily"          # 每天检查一次 (可选: daily, weekly, monthly)
+    #allow: 
+    # - dependency-name: "golang.org/x/exp"
+    #ignore:
+    # - dependency-name: "golang.org/x/exp"
+    #   versions: [">= 2.0.0"] 
