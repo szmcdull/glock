@@ -3,6 +3,7 @@ package glock
 import (
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ func TestReentrance(t *testing.T) {
 		l.Lock()
 		l.Unlock()
 		l.Unlock()
-		if l.owner != 0 {
+		if l.owner.Load() != 0 {
 			t.Error(`owner not cleared`)
 		}
 
@@ -52,7 +53,7 @@ func TestReentranceTry(t *testing.T) {
 		}
 		l.Unlock()
 		l.Unlock()
-		if l.owner != 0 {
+		if l.owner.Load() != 0 {
 			t.Error(`owner not cleared`)
 		}
 
@@ -74,26 +75,29 @@ func TestReentranceTry(t *testing.T) {
 func TestLock(t *testing.T) {
 	l := Mutex{}
 	l.Lock()
-	step := 0
+	var step atomic.Int32
+	var wg sync.WaitGroup
+	wg.Add(1)
 
 	go func() {
+		defer wg.Done()
 		l.Lock()
-		step = 1
+		step.Store(1)
 		l.Unlock()
 	}()
 
 	time.Sleep(time.Millisecond * 100)
-	if step != 0 {
+	if step.Load() != 0 {
 		t.Error(`not locked`)
 	}
 
 	l.Unlock()
-	time.Sleep(time.Millisecond * 100)
-	if step != 1 {
+	wg.Wait()
+	if step.Load() != 1 {
 		t.Error(`not released`)
 	}
 
-	if l.owner != 0 {
+	if l.owner.Load() != 0 {
 		t.Error(`owner not cleared`)
 	}
 
@@ -107,29 +111,32 @@ func TestLockTry(t *testing.T) {
 	if l.TryLock() != true {
 		t.Error(`1`)
 	}
-	step := 0
+	var step atomic.Int32
+	var wg sync.WaitGroup
+	wg.Add(1)
 
 	go func() {
+		defer wg.Done()
 		if l.TryLock() != false {
 			t.Error(`2`)
 		}
 		l.Lock()
-		step = 1
+		step.Store(1)
 		l.Unlock()
 	}()
 
 	time.Sleep(time.Millisecond * 100)
-	if step != 0 {
+	if step.Load() != 0 {
 		t.Error(`not locked`)
 	}
 
 	l.Unlock()
-	time.Sleep(time.Millisecond * 100)
-	if step != 1 {
+	wg.Wait()
+	if step.Load() != 1 {
 		t.Error(`not released`)
 	}
 
-	if l.owner != 0 {
+	if l.owner.Load() != 0 {
 		t.Error(`owner not cleared`)
 	}
 
@@ -143,7 +150,7 @@ func TestConcurrent(t *testing.T) {
 	count := 1000000
 	wg := sync.WaitGroup{}
 	wg.Add(count)
-	counted := 0
+	var counted atomic.Int64
 
 	for i := 0; i < count; i++ {
 		go func() {
@@ -151,7 +158,7 @@ func TestConcurrent(t *testing.T) {
 			for j := 0; j < c; j++ {
 				l.Lock()
 			}
-			counted++
+			counted.Add(1)
 			for j := 0; j < c; j++ {
 				l.Unlock()
 			}
@@ -160,10 +167,10 @@ func TestConcurrent(t *testing.T) {
 	}
 
 	wg.Wait()
-	if l.owner != 0 || l.reentranceCount != 0 {
+	if l.owner.Load() != 0 || l.reentranceCount != 0 {
 		t.Fail()
 	}
-	if counted != count {
+	if counted.Load() != int64(count) {
 		t.Fail()
 	}
 }
@@ -202,7 +209,7 @@ func TestConcurrentTry(t *testing.T) {
 	}
 
 	wg.Wait()
-	if l.owner != 0 || l.reentranceCount != 0 {
+	if l.owner.Load() != 0 || l.reentranceCount != 0 {
 		t.Fail()
 	}
 	if counted != int64(count) {

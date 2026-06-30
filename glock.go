@@ -3,6 +3,7 @@ package glock
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/petermattis/goid"
 )
@@ -10,23 +11,22 @@ import (
 type Mutex struct {
 	sync.Mutex
 
-	// operations in the owner goroutine does not need synchronizing
-	owner           int64 // owner goroutine of the lock, 0 for none
-	reentranceCount int64 // count of reentrances in the owner goroutine
+	owner           atomic.Int64 // owner goroutine of the lock, 0 for none
+	reentranceCount int64        // count of reentrances in the owner goroutine
 }
 
 // Lock and reports whether a waiting occurred
 func (me *Mutex) Lock() (waited bool) {
 	gid := goid.Get()
 
-	if me.owner == gid {
+	if me.owner.Load() == gid {
 		me.reentranceCount++
 		return false
 	}
 
-	waited = me.owner == 0
+	waited = me.owner.Load() == 0
 	me.Mutex.Lock()
-	me.owner = gid
+	me.owner.Store(gid)
 	return waited
 }
 
@@ -34,18 +34,18 @@ func (me *Mutex) Lock() (waited bool) {
 func (me *Mutex) TryLock() (locked bool) {
 	gid := goid.Get()
 
-	if me.owner == gid { // already owned
+	if me.owner.Load() == gid { // already owned
 		me.reentranceCount++
 		return true
 	}
 
-	if me.owner != 0 { // owned by another goroutine, failing the try
+	if me.owner.Load() != 0 { // owned by another goroutine, failing the try
 		return false
 	}
 
 	locked = me.Mutex.TryLock()
 	if locked {
-		me.owner = gid
+		me.owner.Store(gid)
 	}
 	return locked
 }
@@ -54,7 +54,7 @@ func (me *Mutex) TryLock() (locked bool) {
 
 func (me *Mutex) Unlock() {
 	gid := goid.Get()
-	owner := me.owner
+	owner := me.owner.Load()
 	owned := gid == owner
 
 	if !owned {
@@ -62,7 +62,7 @@ func (me *Mutex) Unlock() {
 	}
 
 	if me.reentranceCount == 0 {
-		me.owner = 0
+		me.owner.Store(0)
 		me.Mutex.Unlock()
 	} else if me.reentranceCount > 0 {
 		me.reentranceCount--
